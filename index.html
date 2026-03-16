@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo 956 - RGV Explorer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary-purple: #6a1b9a;
+            --accent-yellow: #fdd835;
+            --bg-light: #f8f9fe;
+            --text-dark: #2d3436;
+            --success-green: #27ae60;
+            --surface: #ffffff;
+            --surface-2: #f8f9fe;
+            --border: #eeeeee;
+            --text-muted: #666666;
+            --page-bg: var(--bg-light);
+            --shadow-soft: 0 20px 50px rgba(34, 34, 52, 0.10);
+            --shadow-card: 0 12px 30px rgba(34, 34, 52, 0.08);
+            --glow: color-mix(in srgb, var(--primary-purple) 18%, transparent);
+        }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Manrope', 'Segoe UI', sans-serif; background: var(--page-bg); color: var(--text-dark); overflow: hidden; transition: background-color 0.35s ease, color 0.35s ease; }
+        body {
+            background-image:
+                radial-gradient(circle at top left, color-mix(in srgb, var(--primary-purple) 18%, transparent), transparent 34%),
+                radial-gradient(circle at top right, color-mix(in srgb, var(--accent-yellow) 28%, transparent), transparent 24%),
+                linear-gradient(180deg, color-mix(in srgb, var(--page-bg) 84%, white), var(--page-bg));
+        }
+
+        body.dark { --page-bg: #0f1115; --surface: #151821; --surface-2: #10131a; --border: #2a2f3a; --text-muted: #a7b0c0; color: #e6e6e6; }
+
+        h1, h2, h3, .calendar-title, header h1 { font-family: 'Space Grotesk', 'Manrope', sans-serif; }
+
+        @keyframes headerFadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- HEADER --- */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 32px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary-purple) 92%, #120d1a), color-mix(in srgb, var(--primary-purple) 68%, #000)); color: white; z-index: 3000;
+            box-shadow: 0 18px 45px rgba(31, 20, 47, 0.18);
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            opacity: 0.97;
+            animation: headerFadeIn 0.6s ease forwards;
+            transition: opacity 0.35s ease, background-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
+        }
+        header:hover { opacity: 1; box-shadow: 0 20px 44px rgba(31,20,47,0.24); transform: translateY(1px); }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-img { height: 94px; width: auto; display: block; filter: drop-shadow(0 8px 20px rgba(0,0,0,0.12)); }
+        .weather-badge { background: rgba(255,255,255,0.14); padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; border: 1px solid rgba(255,255,255,0.24); backdrop-filter: blur(12px); }
+        nav a { color: white; text-decoration: none; font-weight: 700; margin-left: 12px; cursor: pointer; transition: 0.25s ease; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.08); }
+        nav a:hover { color: var(--accent-yellow); background: rgba(255,255,255,0.20); transform: translateY(-1px); }
+
+        .main-container {
+            display: grid; grid-template-columns: 420px 1fr;
+            height: calc(100vh - 72px); gap: 22px; padding: 22px; box-sizing: border-box;
+            animation: headerFadeIn 0.8s ease;
+        }
+
+        /* --- ABOUT PAGE --- */
+        #about-page {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--surface); color: var(--text-dark); z-index: 4000; transform: translateY(100%);
+            transition: 0.6s cubic-bezier(0.16, 1, 0.3, 1); overflow-y: auto; padding: 80px 20px; box-sizing: border-box;
+        }
+        #about-page.active { transform: translateY(0); }
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s ease-out; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .about-content { max-width: 800px; margin: 0 auto; color: var(--text-dark); }
+        #about-page p { color: #2f2f2f; }
+        body.dark #about-page p { color: var(--text-muted); }
+        .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 60px; align-items: center; }
+        .about-img-box { border-radius: 20px; height: 300px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .about-img-box img { width: 100%; height: 100%; object-fit: cover; }
+        .fact-box { background: color-mix(in srgb, var(--primary-purple) 12%, white); border-left: 5px solid var(--primary-purple); padding: 30px; border-radius: 15px; margin: 50px 0; text-align: center; }
+        .close-about { position: fixed; top: 20px; right: 40px; background: var(--primary-purple); color: white; border: none; padding: 12px 25px; border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 4001; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+        /* --- SIDEBAR --- */
+        .sidebar { position: relative; background: color-mix(in srgb, var(--surface) 90%, white); border-radius: 28px; overflow: hidden; box-shadow: var(--shadow-soft); border: 1px solid color-mix(in srgb, var(--border) 82%, white); backdrop-filter: blur(18px); }
+        
+        /* List View */
+        #list-view { height: 100%; overflow-y: auto; padding: 22px; box-sizing: border-box; }
+        #search-input { width: 100%; padding: 16px 18px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--border) 88%, white); margin-bottom: 15px; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.25s ease; background: color-mix(in srgb, var(--surface) 92%, white); color: inherit; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+        #search-input:focus { border-color: var(--primary-purple); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-purple) 18%, transparent); transform: translateY(-1px); }
+        .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-pill { padding: 9px 16px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 80%, white); background: color-mix(in srgb, var(--surface) 95%, white); cursor: pointer; font-size: 13px; font-weight: 700; transition: 0.25s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+        .filter-pill:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--primary-purple) 36%, var(--border)); }
+        .filter-pill.active { background: linear-gradient(135deg, var(--primary-purple), color-mix(in srgb, var(--primary-purple) 75%, #000)); color: white; border-color: transparent; box-shadow: 0 10px 22px color-mix(in srgb, var(--primary-purple) 30%, transparent); }
+        .location-card { background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white), var(--surface)); border-radius: 20px; padding: 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 15px; cursor: pointer; border: 1px solid color-mix(in srgb, var(--border) 84%, white); transition: 0.25s ease; box-shadow: var(--shadow-card); }
+        .location-card:hover { border-color: color-mix(in srgb, var(--primary-purple) 44%, var(--border)); background: color-mix(in srgb, var(--primary-purple) 8%, white); transform: translateY(-4px) scale(1.01); box-shadow: 0 18px 34px color-mix(in srgb, var(--primary-purple) 14%, rgba(0,0,0,0.12)); }
+        .card-copy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .card-category { color: var(--primary-purple); font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; font-size: 11px; }
+        .card-title { margin: 0; font-size: 17px; font-weight: 800; color: var(--text-dark); }
+        .card-arrow { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--primary-purple) 14%, white); color: var(--primary-purple); font-size: 20px; flex-shrink: 0; transition: transform 0.25s ease, background-color 0.25s ease; }
+        .location-card:hover .card-arrow { transform: translateX(3px); background: color-mix(in srgb, var(--primary-purple) 20%, white); }
+
+        /* Detail View UI Fixes */
+        #detail-view { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--surface); z-index: 2; transform: translateX(100%); 
+            transition: 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            overflow-y: auto; display: flex; flex-direction: column;
+        }
+        #detail-view.active { transform: translateX(0); }
+        
+        .detail-header { position: relative; width: 100%; height: 300px; overflow: hidden; }
+        .detail-img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .back-btn { 
+            position: absolute; top: 15px; left: 15px; 
+            background: rgba(255, 255, 255, 0.9); color: var(--text-dark);
+            border: none; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 20px; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: 0.2s; z-index: 10;
+        }
+        .back-btn:hover { background: white; transform: scale(1.1); color: var(--primary-purple); }
+
+        .detail-info { padding: 28px; flex-grow: 1; }
+        .detail-info h2 { margin: 0 0 12px 0; font-size: 34px; line-height: 1.02; color: var(--text-dark); }
+        .detail-info p { line-height: 1.7; color: var(--text-muted); font-size: 15px; margin-bottom: 25px; }
+
+        .directions-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; background: linear-gradient(135deg, var(--success-green), color-mix(in srgb, var(--success-green) 75%, #000)); color: white; 
+            text-align: center; padding: 14px 16px; border-radius: 16px; 
+            text-decoration: none; font-weight: 800; transition: 0.25s ease;
+            box-sizing: border-box; min-height: 48px; overflow: hidden;
+            box-shadow: 0 14px 30px color-mix(in srgb, var(--success-green) 25%, transparent);
+        }
+        .directions-btn:hover { transform: translateY(-3px); box-shadow: 0 18px 32px color-mix(in srgb, var(--success-green) 30%, transparent); }
+
+        /* --- CALENDAR --- */
+        .calendar-panel { margin: 10px 0 16px 0; padding: 16px; border: 1px solid color-mix(in srgb, var(--border) 84%, white); border-radius: 20px; background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white), var(--surface)); box-shadow: var(--shadow-card); }
+        .calendar-panel summary { list-style: none; cursor: pointer; }
+        .calendar-panel summary::-webkit-details-marker { display: none; }
+        .calendar-title { margin: 0 0 8px 0; font-size: 15px; font-weight: 800; color: var(--text-dark); letter-spacing: 0.2px; }
+        .calendar-title::after { content: "v"; float: right; font-size: 14px; color: #888; }
+        .calendar-panel[open] .calendar-title::after { content: "^"; }
+        .calendar-subtitle { margin: 0 0 12px 0; font-size: 12px; color: var(--text-muted); }
+        .event-item { display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 12px 0; border-top: 1px dashed color-mix(in srgb, var(--border) 80%, white); transition: transform 0.2s ease; }
+        .event-item:hover { transform: translateX(3px); }
+        .event-item:first-of-type { border-top: none; }
+        .event-date { background: color-mix(in srgb, var(--primary-purple) 12%, white); border-radius: 10px; padding: 8px; text-align: center; font-weight: 800; color: var(--primary-purple); font-size: 12px; }
+        .event-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-dark); }
+        .event-venue { margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted); }
+        .event-link { font-size: 12px; color: var(--primary-purple); text-decoration: none; font-weight: 700; }
+        .event-link:hover { text-decoration: underline; }
+        .calendar-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 6px 0; }
+        .calendar-filters select, .calendar-filters input { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); font-size: 12px; background: var(--surface); color: inherit; }
+
+        /* --- SETTINGS --- */
+        #settings-panel {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--surface); color: var(--text-dark); z-index: 4500; transform: translateY(100%);
+            transition: 0.6s cubic-bezier(0.16, 1, 0.3, 1); overflow-y: auto; padding: 80px 20px; box-sizing: border-box;
+        }
+        #settings-panel.active { transform: translateY(0); }
+        .settings-content { max-width: 700px; margin: 0 auto; color: inherit; }
+        #settings-panel p { color: #2f2f2f; }
+        body.dark #settings-panel p { color: var(--text-muted); }
+        .close-settings { position: fixed; top: 20px; right: 40px; background: linear-gradient(135deg, var(--primary-purple), color-mix(in srgb, var(--primary-purple) 76%, #000)); color: white; border: none; padding: 12px 25px; border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 4501; box-shadow: 0 14px 24px rgba(0,0,0,0.18); }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+        .setting-row:last-of-type { border-bottom: none; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background: #cfd3da; transition: 0.2s; border-radius: 999px; }
+        .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; top: 3px; background: white; transition: 0.2s; border-radius: 50%; }
+        .switch input:checked + .slider { background: var(--primary-purple); }
+        .switch input:checked + .slider:before { transform: translateX(22px); }
+
+        /* --- MOBILE PREVIEW --- */
+        body.mobile-preview .main-container { grid-template-columns: 1fr; width: 390px; margin: 0 auto; }
+        body.mobile-preview #map { height: 45vh; }
+        body.mobile-preview header { padding: 10px 20px; }
+        /* --- MAP --- */
+        #map { border-radius: 28px; border: 1px solid color-mix(in srgb, var(--border) 82%, white); background: #aad3df; position: relative; box-shadow: var(--shadow-soft); overflow: hidden; }
+        .locate-btn {
+            position: absolute; bottom: 25px; right: 25px; z-index: 1000;
+            background: color-mix(in srgb, var(--surface) 92%, white); border: 1px solid color-mix(in srgb, var(--border) 78%, white); padding: 12px 20px; border-radius: 14px;
+            cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.14); font-weight: 800;
+            color: var(--primary-purple); display: flex; align-items: center; gap: 8px; transition: 0.25s ease;
+        }
+        .locate-btn:hover { background: white; transform: translateY(-2px) scale(1.02); }
+        .category-marker {
+            width: 50px;
+            height: 50px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 800;
+            border: 3px solid rgba(255,255,255,0.92);
+            box-shadow: 0 10px 22px rgba(0,0,0,0.22);
+        }
+        .category-marker span {
+            transform: rotate(45deg);
+            line-height: 1;
+        }
+
+        @media (max-width: 900px) {
+            header { padding: 12px 18px; flex-direction: column; gap: 12px; }
+            .main-container { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 110px); }
+            .sidebar { min-height: 58vh; }
+            #map { min-height: 42vh; }
+            .detail-info h2 { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="about-page">
+    <button class="close-about" onclick="toggleAbout()">✕ Back to Map</button>
+    <div class="about-content">
+        <div class="about-header reveal">
+            <h1>The Heart of the 956</h1>
+            <p style="font-size: 1.2rem; color: #666;">Experience the Rio Grande Valley like a local.</p>
+        </div>
+        <div class="about-grid">
+            <div class="reveal">
+                <h3>Heritage & Flavor</h3>
+                <p>From family-owned taquerias to historic downtowns, the 956 is built on culture and kindness.</p>
+            </div>
+            <div class="about-img-box reveal"><img src="locations/rancho.jpg"></div>
+            <div class="about-img-box reveal"><img src="locations/santaana.jpg"></div>
+            <div class="reveal">
+                <h3>Natural Sanctuary</h3>
+                <p>Located in a unique ecological crossroads, we host wildlife you won't find anywhere else in the country.</p>
+            </div>
+        </div>
+        <div class="fact-box reveal">
+            <h3 style="margin-top:0;">Did You Know?</h3>
+            <span id="fact-text" style="font-size: 1.1rem; display:block; min-height: 50px;">...</span>
+            <button onclick="generateFact()" style="margin-top:15px; padding: 8px 20px; border-radius: 20px; border: 1px solid var(--primary-purple); background: white; color: var(--primary-purple); font-weight: bold; cursor:pointer;">New Fact</button>
+        </div>
+    </div>
+</div>
+
+<div id="settings-panel">
+    <button class="close-settings" onclick="toggleSettings()">X Back</button>
+    <div class="settings-content">
+        <h1>Settings</h1>
+        <div class="setting-row">
+            <span>Dark Mode</span>
+            <label class="switch">
+                <input type="checkbox" id="dark-toggle" onchange="setDarkMode(this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <span>Mobile View</span>
+            <label class="switch">
+                <input type="checkbox" id="mobile-toggle" onchange="setMobileView(this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+</div>
+<header>
+    <div class="logo-area"><img src="assets/logo.png" class="logo-img"></div>
+    <div style="display:flex; align-items:center;">
+        <div id="weather" class="weather-badge">RGV: Loading...</div>
+        <nav>
+            <a onclick="toggleAbout()">About</a>
+            <a onclick="toggleSettings()">Settings</a>
+            <a href="https://www.facebook.com/p/ToDo-956-100088958413250/" target="_blank">Socials</a>
+        </nav>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="sidebar">
+                <div id="list-view">
+            <input type="text" id="search-input" placeholder="Search for a place..." oninput="filterLocations()">
+            <div id="sheet-status" style="font-size:12px; color:#666; margin:6px 2px 12px 2px;"></div>
+            <div class="filter-bar">
+                <button class="filter-pill active" onclick="setCategory('All')">All</button>
+                <button class="filter-pill" onclick="setCategory('Fun')">Fun</button>
+                <button class="filter-pill" onclick="setCategory('Nature')">Nature</button>
+                <button class="filter-pill" onclick="setCategory('Food')">Food</button>
+                <button class="filter-pill" onclick="setCategory('Sports')">Sports</button>
+                <button class="filter-pill" onclick="setCategory('Music')">Music</button>
+            </div>
+
+            <details class="calendar-panel">
+                <summary class="calendar-title">RGV Events Calendar</summary>
+                <div class="calendar-filters">
+                    <select id="calendar-range" onchange="filterCalendar()">
+                        <option value="all">All</option>
+                        <option value="week">This week</option>
+                        <option value="month">This month</option>
+                        <option value="date">Specific date</option>
+                    </select>
+                    <input type="date" id="calendar-date" onchange="filterCalendar()">
+                </div>
+                <p class="calendar-subtitle">Upcoming picks (as of March 12, 2026)</p>
+
+                <div class="event-item" data-date="2026-03-14">
+                    <div class="event-date">Mar 14</div>
+                    <div>
+                        <p class="event-title">Profugos De Nuevo Leon</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-19">
+                    <div class="event-date">Mar 19</div>
+                    <div>
+                        <p class="event-title">Fey</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-20">
+                    <div class="event-date">Mar 20</div>
+                    <div>
+                        <p class="event-title">Gaby Mendoza</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-21">
+                    <div class="event-date">Mar 21</div>
+                    <div>
+                        <p class="event-title">Jennifer Pena</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-22">
+                    <div class="event-date">Mar 22</div>
+                    <div>
+                        <p class="event-title">Humbe</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-26">
+                    <div class="event-date">Mar 26</div>
+                    <div>
+                        <p class="event-title">Tradiciones 2026</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-27">
+                    <div class="event-date">Mar 27</div>
+                    <div>
+                        <p class="event-title">Mario Aguilar</p>
+                        <p class="event-venue">McAllen Performing Arts Center</p>
+                        <a class="event-link" href="https://www.mcallentheater.com/" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+                <div class="event-item" data-date="2026-03-27">
+                    <div class="event-date">Mar 27</div>
+                    <div>
+                        <p class="event-title">Ricardo Arjona</p>
+                        <p class="event-venue">Bert Ogden Arena, Edinburg</p>
+                        <a class="event-link" href="https://www.ticketmaster.com/event/Z7r9jZ1A7jN18" target="_blank" rel="noopener">Details</a>
+                    </div>
+                </div>
+            </details>
+
+            <div id="card-list"></div>
+        </div>
+        <div id="detail-view">
+            <div class="detail-header">
+                <button class="back-btn" onclick="closeDetail()">←</button>
+                <img id="place-img" class="detail-img" src="">
+            </div>
+            <div class="detail-info">
+                <h2 id="place-title"></h2>
+                <p id="place-desc"></p>
+                <a id="directions-link" class="directions-btn" target="_blank">
+                    <span>📍 Open in Google Maps</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="map">
+        <button class="locate-btn" onclick="locateUser()">Find Me 🛰️</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    /* --- MAP SETUP (ONE EARTH) --- */
+    const map = L.map('map', {
+        minZoom: 2, maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 1.0, worldCopyJump: false
+    }).setView([26.15, -97.9], 9);
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { noWrap: true });
+    satelliteLayer.addTo(map);
+
+    /* --- WEATHER --- */
+    async function fetchWeather() {
+        try {
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=26.15&longitude=-97.9&current_weather=true&temperature_unit=fahrenheit');
+            const data = await res.json();
+            document.getElementById('weather').innerText = `RGV: ${Math.round(data.current_weather.temperature)}°F`;
+        } catch(e) { document.getElementById('weather').innerText = "RGV: 75°F"; }
+    }
+    fetchWeather();
+
+    /* --- GPS --- */
+    function locateUser() { map.locate({setView: true, maxZoom: 14}); }
+    map.on('locationfound', (e) => {
+        L.circle(e.latlng, e.accuracy).addTo(map);
+        L.marker(e.latlng).addTo(map).bindPopup("You are here").openPopup();
+    });
+
+    /* --- FACT GENERATOR --- */
+    const rgvFacts = [
+        "The RGV is a top bird-watching destination in the world.",
+        "Weslaco is known as the 'City with a Strategy.'",
+        "SpaceX Starbase builds the world's largest rockets in Boca Chica.",
+        "The Iwo Jima original mold is located in Harlingen.",
+        "The Valley produces over 9 million cartons of citrus annually.",
+        "The Battle of Palo Alto was the first major battle of the U.S.-Mexican War."
+    ];
+    function generateFact() { document.getElementById('fact-text').innerText = rgvFacts[Math.floor(Math.random() * rgvFacts.length)]; }
+    function toggleAbout() { document.getElementById('about-page').classList.toggle('active'); generateFact(); }
+
+    function toggleSettings() {
+        document.getElementById('settings-panel').classList.toggle('active');
+    }
+
+    function setDarkMode(enabled) {
+        document.body.classList.toggle('dark', enabled);
+        localStorage.setItem('darkMode', enabled ? '1' : '0');
+    }
+
+    function setMobileView(enabled) {
+        document.body.classList.toggle('mobile-preview', enabled);
+        localStorage.setItem('mobileView', enabled ? '1' : '0');
+    }
+
+    /* --- ALL 20 LOCATIONS PRESERVED --- */
+    const locations = [
+        { name: "Nana's Taqueria", cat: "Food", desc: "A Weslaco staple famous for authentic recipes and a beautiful garden atmosphere.", lat: 26.1411, lng: -97.9585, image: "nanas.jpg" },
+        { name: "El Rancho Grande", cat: "Food", desc: "McAllen's home for traditional Mexican breakfast and large portions.", lat: 26.1914, lng: -98.2291, image: "rancho.jpg" },
+        { name: "Joe's Oyster Bar", cat: "Food", desc: "Fresh, no-frills coastal seafood in Port Isabel.", lat: 26.0792, lng: -97.2144, image: "joes.jpg" },
+        { name: "Teddy's Barbecue", cat: "Food", desc: "Top-rated Texas BBQ in Weslaco, mixing Central TX style with RGV flavor.", lat: 26.1873, lng: -97.9915, image: "teddys.jpg" },
+        { name: "SpaceX Starbase", cat: "Fun", desc: "See the future of space exploration being built on the shores of Boca Chica.", lat: 25.9875, lng: -97.1864, image: "spacex.jpg" },
+        { name: "Gladys Porter Zoo", cat: "Fun", desc: "A historic 26-acre zoo in Brownsville with exotic animals and plants.", lat: 25.913290, lng: -97.495361, image: "zoo.jpg" },
+        { name: "IMAS Museum", cat: "Fun", desc: "Fine art and hands-on science in McAllen.", lat: 26.2410, lng: -98.2345, image: "imas.jpg" },
+        { name: "Museum of South Texas History", cat: "Fun", desc: "History of the borderlands inside the old Edinburg jail.", lat: 26.3028, lng: -98.1614, image: "museum.jpg" },
+        { name: "Iwo Jima Monument", cat: "Fun", desc: "The original working mold for the famous statue in Harlingen.", lat: 26.2227, lng: -97.7681, image: "iwojima.jpg" },
+        { name: "The Port of Brownsville", cat: "Fun", desc: "Massive seaport where you can see giant oil rigs and international ships.", lat: 25.9525, lng: -97.4080, image: "port.jpg" },
+        { name: "Mission Hike & Bike", cat: "Nature", desc: "Miles of paved paths through native Valley brush.", lat: 26.1935, lng: -98.3300, image: "mission_trail.jpg" },
+        { name: "McAllen 2nd St Trail", cat: "Nature", desc: "A tree-lined path perfect for a family walk or run.", lat: 26.2150, lng: -98.2252, image: "mcallen_trail.jpg" },
+        { name: "South Padre Island Pier", cat: "Nature", desc: "The best place to catch a sunset over the Laguna Madre.", lat: 26.0864, lng: -97.1864, image: "pier.jpg" },
+        { name: "Bentsen State Park", cat: "Nature", desc: "World Birding Center headquarters in Mission.", lat: 26.186987, lng: -98.381888, image: "bentsen.jpg" },
+        { name: "Palo Alto Battlefield", cat: "Nature", desc: "National Park preserving the historic battle site.", lat: 26.023874, lng: -97.462961, image: "paloalto.jpg" },
+        { name: "Santa Ana Refuge", cat: "Nature", desc: "Subtropical jungle trails and rare bird sightings.", lat: 26.082165, lng: -98.135359, image: "santaana.jpg" },
+        { name: "Estero Llano Grande", cat: "Nature", desc: "Beautiful wetland boardwalks in Weslaco.", lat: 26.126411, lng: -97.956518, image: "estero.jpg" },
+        { name: "Belden Trail", cat: "Nature", desc: "A rail-to-trail path through historic Brownsville.", lat: 25.911930, lng: -97.508341, image: "belden.jpg" },
+        { name: "Dixieland Park Trail", cat: "Nature", desc: "Scenic lakeside trails in Harlingen.", lat: 26.1700, lng: -97.7200, image: "dixieland.jpg" },
+                { name: "Firemen’s Park", cat: "Nature", desc: "McAllen park with kayaking, running trails, and a lake.", lat: 26.1981, lng: -98.1394, image: "firemens.jpg" },
+        { name: "Khan's Grill", cat: "Food", desc: "Khan's Grill is a popular Rio Grande Valley-based Mongolian barbecue chain known for its interactive, create-your-own-stir-fry dining experience.", lat: 26.23, lng: -98.2, image: "khans.jpg" }
+    ];
+
+    const sheetId = "1BytLnzaRnzGerM-ldVp7yp-jUWfYQMqHJOA1QBKBCtI";
+    const sheetGid = "49890693";
+    const sheetCsvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${sheetGid}`;
+    const sheetJsonpUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${sheetGid}&tqx=responseHandler:handleSheetResponse;out:json`;
+    const assetDir = "assets";
+    const locationImageDir = "locations";
+    let sheetLocations = [];
+    let currentMarkers = [], currentCategory = 'All';
+    const iconBase = { iconSize: [50, 50], iconAnchor: [25, 50] };
+    function resolveAssetPath(fileName) {
+        if (!fileName) return "";
+        const normalized = String(fileName).replace(/\\/g, '/');
+        if (/^(https?:|data:|\/)/i.test(normalized) || normalized.includes('/')) return normalized;
+        return `${assetDir}/${normalized}`;
+    }
+    function resolveLocationImagePath(fileName) {
+        if (!fileName) return `${locationImageDir}/fachada-local.jpg`;
+        const normalized = String(fileName).replace(/\\/g, '/');
+        if (/^(https?:|data:|\/)/i.test(normalized) || normalized.includes('/')) return normalized;
+        return `${locationImageDir}/${normalized}`;
+    }
+    const icons = {
+        "Food": L.icon({...iconBase, iconUrl: resolveAssetPath('food.png')}),
+        "Nature": L.icon({...iconBase, iconUrl: resolveAssetPath('nature.png')}),
+        "Fun": L.icon({...iconBase, iconUrl: resolveAssetPath('fun.png')}),
+        "Sports": L.icon({...iconBase, iconUrl: resolveAssetPath('sports.png')}),
+        "Music": L.icon({...iconBase, iconUrl: resolveAssetPath('music.png')})
+    };
+
+    const categoryThemes = {
+        Default: { primary: '#6a1b9a', accent: '#fdd835', bg: '#f8f9fe', text: '#2d3436', success: '#27ae60' },
+        Food: { primary: '#c04a2f', accent: '#f3a712', bg: '#fff6ef', text: '#2d3436', success: '#b03f27' },
+        Nature: { primary: '#1b8a5a', accent: '#9fd356', bg: '#f2fbf5', text: '#1f2e2a', success: '#157a4f' },
+        Fun: { primary: '#1e6bd6', accent: '#ffd166', bg: '#f1f6ff', text: '#182233', success: '#1657b1' },
+        Sports: { primary: '#c62828', accent: '#ff8a80', bg: '#fff1f1', text: '#321919', success: '#a61f1f' },
+        Music: { primary: '#4b1d7a', accent: '#b388ff', bg: '#f6f0ff', text: '#241734', success: '#3b1661' }
+    };
+
+        let activeThemeCategory = "Default";
+    function applyTheme(category) {
+        activeThemeCategory = category || "Default";
+        const theme = categoryThemes[activeThemeCategory] || categoryThemes.Default;
+        const root = document.documentElement;
+        root.style.setProperty('--primary-purple', theme.primary);
+        root.style.setProperty('--accent-yellow', theme.accent);
+        root.style.setProperty('--bg-light', theme.bg);
+        root.style.setProperty('--text-dark', theme.text);
+        root.style.setProperty('--success-green', theme.success);
+        if (!document.body.classList.contains('dark')) {
+            root.style.setProperty('--page-bg', theme.bg);
+            root.style.setProperty('--surface-2', theme.bg);
+        }
+    }
+
+     function openDetail(loc) {
+         applyTheme(loc.cat);
+         document.getElementById('place-img').src = resolveLocationImagePath(loc.image);
+         document.getElementById('place-title').innerText = loc.name;
+         document.getElementById('place-desc').innerText = loc.desc;
+        const destination = encodeURIComponent(`${loc.name}, Rio Grande Valley, Texas`);
+        document.getElementById('directions-link').href = `https://www.google.com/maps/search/?api=1&query=${destination}`;
+         document.getElementById('detail-view').classList.add('active');
+         map.flyTo([loc.lat, loc.lng], 14);
+     }
+
+    function closeDetail() { document.getElementById('detail-view').classList.remove('active'); applyTheme('Default'); map.flyTo([26.15, -97.9], 9); }
+    function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            const next = text[i + 1];
+            if (ch === '"' && inQuotes && next === '"') { current += '"'; i++; continue; }
+            if (ch === '"') { inQuotes = !inQuotes; continue; }
+            if (ch === ',' && !inQuotes) { row.push(current); current = ""; continue; }
+            if ((ch === '\n' || ch === '\r') && !inQuotes) {
+                if (current.length || row.length) { row.push(current); rows.push(row); }
+                row = []; current = "";
+                if (ch === '\r' && next === '\n') i++;
+                continue;
+            }
+            current += ch;
+        }
+        if (current.length || row.length) { row.push(current); rows.push(row); }
+        return rows;
+    }
+
+    function normalizeHeader(value) {
+        return String(value || "").replace(/^\uFEFF/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+
+    function findHeaderIndex(headers, aliases) {
+        return headers.findIndex(h => aliases.includes(h));
+    }
+
+    function applySheetRows(rows) {
+        const statusEl = document.getElementById('sheet-status');
+        if (!rows || !rows.length) {
+            sheetLocations = [];
+            if (statusEl) statusEl.textContent = "No form entries yet.";
+            return;
+        }
+
+        const headers = rows[0].map(h => normalizeHeader(h));
+        const iName = findHeaderIndex(headers, ["placename", "eventname", "locationname", "name"]);
+        const iCat = findHeaderIndex(headers, ["category", "cat", "type"]);
+        const iDesc = findHeaderIndex(headers, ["description", "desc", "details"]);
+        const iLat = findHeaderIndex(headers, ["latitude", "lat"]);
+        const iLng = findHeaderIndex(headers, ["longitude", "longtitude", "lng", "lon", "long"]);
+        const iImg = findHeaderIndex(headers, ["imagefilenameorurl", "imagefilename", "imageurl", "image", "photo", "picture"]);
+
+        if (iName === -1 || iLat === -1 || iLng === -1) {
+            sheetLocations = [];
+            if (statusEl) statusEl.textContent = `Form connected, but columns not found. Required: Place Name, Latitude, Longitude. Found: ${headers.join(", ")}`;
+            return;
+        }
+
+        const normalized = [];
+        let skippedCount = 0;
+        for (let r = 1; r < rows.length; r++) {
+            const row = rows[r];
+            const name = (row[iName] || "").trim();
+            const catRaw = (row[iCat] || "").trim();
+            const desc = (row[iDesc] || "").trim();
+            const lat = parseFloat((row[iLat] || "").trim());
+            const lng = parseFloat((row[iLng] || "").trim());
+            const image = (row[iImg] || "").trim();
+            if (!name || Number.isNaN(lat) || Number.isNaN(lng)) { skippedCount++; continue; }
+
+            const catNorm = catRaw ? (catRaw.charAt(0).toUpperCase() + catRaw.slice(1).toLowerCase()) : "Fun";
+            const cat = ["Food", "Fun", "Nature", "Sports", "Music"].includes(catNorm) ? catNorm : "Fun";
+            normalized.push({
+                name,
+                cat,
+                desc: desc || "Community submitted location.",
+                lat,
+                lng,
+                image: image || "fachada-local.jpg"
+            });
+        }
+
+        sheetLocations = normalized;
+        if (statusEl) {
+            if (rows.length <= 1) {
+                statusEl.textContent = "No form entries yet.";
+            } else if (!normalized.length) {
+                statusEl.textContent = "Entries found, but none were valid. Check Latitude/Longitude columns and values.";
+            } else {
+                statusEl.textContent = `Form entries loaded: ${normalized.length}${skippedCount ? `, skipped: ${skippedCount} (missing name or lat/lng)` : ""}`;
+            }
+        }
+    }
+
+    function loadSheetLocationsFromJsonp() {
+        return new Promise((resolve, reject) => {
+            const existing = document.getElementById('sheet-jsonp-loader');
+            if (existing) existing.remove();
+
+            const cleanup = () => {
+                delete window.handleSheetResponse;
+                const script = document.getElementById('sheet-jsonp-loader');
+                if (script) script.remove();
+            };
+
+            const timer = setTimeout(() => {
+                cleanup();
+                reject(new Error("Google Sheets request timed out."));
+            }, 12000);
+
+            window.handleSheetResponse = (data) => {
+                clearTimeout(timer);
+                cleanup();
+                try {
+                    let headers = (data.table.cols || []).map(col => col.label || "");
+                    const bodyRows = (data.table.rows || []).map(row => (row.c || []).map(cell => {
+                        const value = cell && typeof cell.v !== "undefined" ? cell.v : (cell && typeof cell.f !== "undefined" ? cell.f : "");
+                        return value == null ? "" : String(value);
+                    }));
+                    if (!headers.some(h => normalizeHeader(h))) {
+                        headers = bodyRows.length ? bodyRows[0] : [];
+                        applySheetRows([headers].concat(bodyRows.slice(1)));
+                    } else {
+                        applySheetRows([headers].concat(bodyRows));
+                    }
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            };
+
+            const script = document.createElement('script');
+            script.id = 'sheet-jsonp-loader';
+            script.src = sheetJsonpUrl + `&_=${Date.now()}`;
+            script.onerror = () => {
+                clearTimeout(timer);
+                cleanup();
+                reject(new Error("Could not load the published Google Sheet."));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    async function loadSheetLocations() {
+        try {
+            await loadSheetLocationsFromJsonp();
+        } catch (jsonpError) {
+            try {
+                const res = await fetch(sheetCsvUrl, { cache: "no-store" });
+                if (!res.ok) throw new Error(`CSV request failed: ${res.status}`);
+                const csvText = await res.text();
+                const rows = parseCsv(csvText);
+                applySheetRows(rows);
+            } catch (csvError) {
+                sheetLocations = [];
+                const statusEl = document.getElementById('sheet-status');
+                if (statusEl) statusEl.textContent = "Form could not load right now. Make sure the sheet is still published to the web.";
+            }
+        }
+    }
+    function setCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', p.innerText === cat));
+        applyTheme(cat === 'All' ? 'Default' : cat);
+        filterLocations();
+        filterCalendar();
+    }
+
+    function filterCalendar() {
+        const rangeEl = document.getElementById('calendar-range');
+        const dateEl = document.getElementById('calendar-date');
+        if (!rangeEl || !dateEl) return;
+        let mode = rangeEl.value;
+        const selectedDateStr = dateEl.value;
+        if (selectedDateStr && mode !== 'date') {
+            mode = 'date';
+            rangeEl.value = 'date';
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        document.querySelectorAll('.calendar-panel .event-item').forEach(item => {
+            const dStr = item.getAttribute('data-date');
+            if (!dStr) { item.style.display = ''; return; }
+            const d = new Date(dStr + 'T00:00:00');
+            let show = true;
+            if (mode === 'week') {
+                show = d >= startOfWeek && d <= endOfWeek;
+            } else if (mode === 'month') {
+                show = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+            } else if (mode === 'date') {
+                if (selectedDateStr) {
+                    const sd = new Date(selectedDateStr + 'T00:00:00');
+                    show = d.getTime() === sd.getTime();
+                }
+            }
+            item.style.display = show ? '' : 'none';
+        });
+    }
+    function initSettings() {
+        const dark = localStorage.getItem('darkMode') === '1';
+        const mobile = localStorage.getItem('mobileView') === '1';
+        const darkToggle = document.getElementById('dark-toggle');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        if (darkToggle) darkToggle.checked = dark;
+        if (mobileToggle) mobileToggle.checked = mobile;
+        setDarkMode(dark);
+        setMobileView(mobile);
+    }
+    function filterLocations() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const list = document.getElementById('card-list');
+        list.innerHTML = "";
+        currentMarkers.forEach(m => map.removeLayer(m));
+        currentMarkers = [];
+        const allLocations = locations.concat(sheetLocations);
+        allLocations.forEach((loc) => {
+            if ((currentCategory === 'All' || loc.cat === currentCategory) && loc.name.toLowerCase().includes(searchTerm)) {
+                const marker = L.marker([loc.lat, loc.lng], { icon: icons[loc.cat] || icons["Fun"] }).addTo(map).on('click', () => openDetail(loc));
+                currentMarkers.push(marker);
+                const card = document.createElement('div');
+                card.className = 'location-card';
+                card.innerHTML = `
+                    <div class="card-copy">
+                        <small class="card-category">${loc.cat}</small>
+                        <h4 class="card-title">${loc.name}</h4>
+                    </div>
+                    <span class="card-arrow">+</span>
+                `;
+                card.onclick = () => openDetail(loc);
+                list.appendChild(card);
+            }
+        });
+    }
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => e.target.classList.toggle('visible', e.isIntersecting));
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    
+    (async () => {
+        initSettings();
+        await loadSheetLocations();
+        filterLocations();
+        filterCalendar();
+        setInterval(async () => {
+            await loadSheetLocations();
+            filterLocations();
+        filterCalendar();
+        }, 60000);
+    })();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
